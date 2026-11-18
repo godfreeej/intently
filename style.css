@@ -194,6 +194,9 @@ main {
 .badge-once { background: var(--accent); color: var(--accent-ink); }
 .badge-multi { background: var(--border); color: var(--muted); }
 .badge-duration { background: var(--accent2); color: var(--accent2-ink); }
+.badge-book-to_read { background: var(--border); color: var(--muted); }
+.badge-book-reading { background: var(--accent); color: var(--accent-ink); }
+.badge-book-finished { background: var(--border); color: var(--muted); }
 
 .habit-control {
   display: flex;
@@ -207,6 +210,20 @@ main {
   align-items: stretch;
   gap: 4px;
   width: 96px;
+}
+
+.habit-control.duration-control.book-control {
+  width: 170px;
+}
+
+.book-select {
+  width: 100%;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--ink);
+  font-size: 12px;
 }
 
 .duration-total-row {
@@ -299,7 +316,7 @@ main {
   color: var(--muted);
 }
 
-.xp-field input {
+.xp-field input[type="number"] {
   width: 80px;
   padding: 8px 10px;
   border-radius: 8px;
@@ -307,6 +324,12 @@ main {
   background: var(--bg);
   color: var(--ink);
   font-size: 14px;
+}
+
+.xp-field input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .add-form .hint { margin: -4px 0 0; }

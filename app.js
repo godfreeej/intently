@@ -316,6 +316,62 @@ function renderHabitsToday(habits, logs) {
       plusBtn.addEventListener("click", () => setHabitValue(habit.id, currentValue + 1));
 
       control.append(minusBtn, countEl, plusBtn);
+    } else if (habit.kind === "duration" && habit.tracks_books) {
+      control.classList.add("duration-control", "book-control");
+
+      const totalEl = document.createElement("span");
+      totalEl.className = "duration-total";
+      totalEl.textContent = `${currentValue} min`;
+
+      const resetBtn = document.createElement("button");
+      resetBtn.className = "icon-btn";
+      resetBtn.textContent = "✕";
+      resetBtn.title = "Reset today";
+      resetBtn.addEventListener("click", () => setHabitValue(habit.id, 0));
+
+      const totalRow = document.createElement("div");
+      totalRow.className = "duration-total-row";
+      totalRow.append(totalEl, resetBtn);
+
+      const bookSelect = document.createElement("select");
+      bookSelect.className = "book-select";
+      if (cachedBooks.length === 0) {
+        const opt = document.createElement("option");
+        opt.textContent = "Add a book first";
+        opt.disabled = true;
+        bookSelect.appendChild(opt);
+        bookSelect.disabled = true;
+      } else {
+        for (const book of cachedBooks) {
+          const opt = document.createElement("option");
+          opt.value = book.id;
+          opt.textContent = book.title;
+          bookSelect.appendChild(opt);
+        }
+      }
+
+      const minutesInput = document.createElement("input");
+      minutesInput.type = "number";
+      minutesInput.min = "1";
+      minutesInput.className = "duration-input";
+      minutesInput.placeholder = "min";
+
+      const addBtn = document.createElement("button");
+      addBtn.className = "stepper-btn";
+      addBtn.textContent = "+";
+      addBtn.disabled = cachedBooks.length === 0;
+      addBtn.addEventListener("click", () => {
+        const minutes = minutesInput.value ? parseInt(minutesInput.value, 10) : 1;
+        if (!minutes || minutes <= 0) return;
+        logReadingSession(habit.id, bookSelect.value, minutes, currentValue);
+        minutesInput.value = "";
+      });
+
+      const entryRow = document.createElement("div");
+      entryRow.className = "duration-entry";
+      entryRow.append(minutesInput, addBtn);
+
+      control.append(totalRow, bookSelect, entryRow);
     } else {
       control.classList.add("duration-control");
 
@@ -403,6 +459,12 @@ function renderHabitsManage(habits) {
     name.className = "item-title";
     name.textContent = habit.name;
     nameRow.append(name, habitBadge(habit.kind));
+    if (habit.tracks_books) {
+      const bookBadge = document.createElement("span");
+      bookBadge.className = "badge badge-book-reading";
+      bookBadge.textContent = "Books";
+      nameRow.appendChild(bookBadge);
+    }
     text.appendChild(nameRow);
     const xpLine = document.createElement("div");
     xpLine.className = "item-reason";
@@ -429,6 +491,8 @@ async function setHabitActive(id, active) {
 const habitKindSelect = document.getElementById("habit-kind");
 const habitXpInput = document.getElementById("habit-xp");
 const habitXpHint = document.getElementById("habit-xp-hint");
+const habitTracksBooksRow = document.getElementById("habit-tracks-books-row");
+const habitTracksBooksCheckbox = document.getElementById("habit-tracks-books");
 
 const XP_HINTS = {
   once: "XP earned each day you complete it.",
@@ -438,6 +502,9 @@ const XP_HINTS = {
 
 function updateXpHint() {
   habitXpHint.textContent = XP_HINTS[habitKindSelect.value] || "";
+  const isDuration = habitKindSelect.value === "duration";
+  habitTracksBooksRow.classList.toggle("hidden", !isDuration);
+  if (!isDuration) habitTracksBooksCheckbox.checked = false;
 }
 habitKindSelect.addEventListener("change", updateXpHint);
 updateXpHint();
@@ -451,6 +518,7 @@ habitForm.addEventListener("submit", async (e) => {
     name: nameInput.value.trim(),
     kind: habitKindSelect.value,
     xp_value: parseInt(habitXpInput.value, 10) || 0,
+    tracks_books: habitKindSelect.value === "duration" && habitTracksBooksCheckbox.checked,
   });
   if (error) {
     console.error(error);
@@ -458,6 +526,7 @@ habitForm.addEventListener("submit", async (e) => {
   }
   nameInput.value = "";
   habitXpInput.value = "1";
+  habitTracksBooksCheckbox.checked = false;
   loadHabits();
 });
 
@@ -469,6 +538,8 @@ const bountiesCompletedList = document.getElementById("bounties-completed-list")
 const bountiesCompletedEmpty = document.getElementById("bounties-completed-empty");
 const bountyXpSummaryEl = document.getElementById("bounty-xp-summary");
 const bountyForm = document.getElementById("bounty-form");
+const todayBountiesList = document.getElementById("today-bounties-list");
+const todayBountiesEmpty = document.getElementById("today-bounties-empty");
 
 function bountyMultiplier(bounty, atMs = Date.now()) {
   const createdMs = new Date(bounty.created_at).getTime();
@@ -497,15 +568,9 @@ async function loadBounties() {
   renderXpSummary();
 }
 
-function renderBounties() {
-  const pending = cachedBounties.filter((b) => !b.completed_at);
-  const completed = cachedBounties.filter((b) => b.completed_at);
-
-  pending.sort((a, b) => bountyCurrentXp(b) - bountyCurrentXp(a));
-  completed.sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
-
-  bountiesActiveList.innerHTML = "";
-  bountiesEmpty.classList.toggle("hidden", pending.length > 0);
+function renderActiveBountyList(container, emptyEl, pending) {
+  container.innerHTML = "";
+  emptyEl.classList.toggle("hidden", pending.length > 0);
 
   for (const bounty of pending) {
     const li = document.createElement("li");
@@ -543,8 +608,19 @@ function renderBounties() {
     deleteBtn.addEventListener("click", () => deleteBounty(bounty.id));
 
     li.append(completeBtn, text, deleteBtn);
-    bountiesActiveList.appendChild(li);
+    container.appendChild(li);
   }
+}
+
+function renderBounties() {
+  const pending = cachedBounties.filter((b) => !b.completed_at);
+  const completed = cachedBounties.filter((b) => b.completed_at);
+
+  pending.sort((a, b) => bountyCurrentXp(b) - bountyCurrentXp(a));
+  completed.sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
+
+  renderActiveBountyList(bountiesActiveList, bountiesEmpty, pending);
+  renderActiveBountyList(todayBountiesList, todayBountiesEmpty, pending);
 
   bountiesCompletedList.innerHTML = "";
   bountiesCompletedEmpty.classList.toggle("hidden", completed.length > 0);
@@ -760,12 +836,271 @@ document.getElementById("calendar-next").addEventListener("click", () => {
   renderCalendar();
 });
 
+// ---------- Reading (books + reading sessions) ----------
+
+const booksListEl = document.getElementById("books-list");
+const booksEmptyEl = document.getElementById("books-empty");
+const bookForm = document.getElementById("book-form");
+
+const readingCalendarPicker = document.getElementById("reading-calendar-picker");
+const readingCalendarGrid = document.getElementById("reading-calendar-grid");
+const readingCalendarMonthLabel = document.getElementById("reading-calendar-month-label");
+
+let cachedBooks = [];
+let cachedReadingSessions = [];
+let readingCalendarMonth = new Date();
+readingCalendarMonth.setDate(1);
+
+const BOOK_STATUS_LABELS = { to_read: "To read", reading: "Reading", finished: "Finished" };
+const NEXT_STATUS = { to_read: "reading", reading: "finished", finished: "to_read" };
+
+async function loadBooks() {
+  const { data, error } = await sb
+    .from("books")
+    .select("*")
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.error(error);
+    return;
+  }
+  cachedBooks = data || [];
+  renderBooksList();
+  renderReadingCalendarPicker();
+  renderReadingCalendar();
+  renderHabitsToday(cachedHabits, cachedLogs);
+}
+
+async function loadReadingSessions() {
+  const { data, error } = await sb.from("reading_sessions").select("*");
+  if (error) {
+    console.error(error);
+    return;
+  }
+  cachedReadingSessions = data || [];
+  renderReadingCalendar();
+}
+
+function renderBooksList() {
+  booksListEl.innerHTML = "";
+  booksEmptyEl.classList.toggle("hidden", cachedBooks.length > 0);
+
+  for (const book of cachedBooks) {
+    const li = document.createElement("li");
+    li.className = "list-item" + (book.status === "finished" ? " done" : "");
+
+    const text = document.createElement("div");
+    text.className = "item-text";
+    const nameRow = document.createElement("div");
+    nameRow.className = "item-title-row";
+    const title = document.createElement("span");
+    title.className = "item-title";
+    title.textContent = book.title;
+    const badge = document.createElement("span");
+    badge.className = "badge badge-book-" + book.status;
+    badge.textContent = BOOK_STATUS_LABELS[book.status];
+    nameRow.append(title, badge);
+    text.appendChild(nameRow);
+    if (book.author) {
+      const author = document.createElement("div");
+      author.className = "item-reason";
+      author.textContent = book.author;
+      text.appendChild(author);
+    }
+
+    const statusBtn = document.createElement("button");
+    statusBtn.className = "link-btn";
+    statusBtn.textContent = `Mark ${BOOK_STATUS_LABELS[NEXT_STATUS[book.status]].toLowerCase()}`;
+    statusBtn.addEventListener("click", () => setBookStatus(book.id, NEXT_STATUS[book.status]));
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "icon-btn";
+    deleteBtn.textContent = "✕";
+    deleteBtn.title = "Delete";
+    deleteBtn.addEventListener("click", () => deleteBook(book.id));
+
+    li.append(text, statusBtn, deleteBtn);
+    booksListEl.appendChild(li);
+  }
+}
+
+async function setBookStatus(id, status) {
+  const { error } = await sb.from("books").update({ status }).eq("id", id);
+  if (error) console.error(error);
+  loadBooks();
+}
+
+async function deleteBook(id) {
+  const { error } = await sb.from("books").delete().eq("id", id);
+  if (error) console.error(error);
+  loadBooks();
+}
+
+bookForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const titleInput = document.getElementById("book-title");
+  const authorInput = document.getElementById("book-author");
+  const statusInput = document.getElementById("book-status");
+  const { data: userData } = await sb.auth.getUser();
+  const { error } = await sb.from("books").insert({
+    user_id: userData.user.id,
+    title: titleInput.value.trim(),
+    author: authorInput.value.trim() || null,
+    status: statusInput.value,
+  });
+  if (error) {
+    console.error(error);
+    return;
+  }
+  titleInput.value = "";
+  authorInput.value = "";
+  statusInput.value = "to_read";
+  loadBooks();
+});
+
+async function logReadingSession(habitId, bookId, minutes, currentValue) {
+  const today = todayStr();
+  const { data: userData } = await sb.auth.getUser();
+  const { error: sessionErr } = await sb.from("reading_sessions").insert({
+    user_id: userData.user.id,
+    habit_id: habitId,
+    book_id: bookId,
+    for_date: today,
+    minutes,
+  });
+  if (sessionErr) {
+    console.error(sessionErr);
+    return;
+  }
+  await setHabitValue(habitId, currentValue + minutes);
+  loadReadingSessions();
+}
+
+function loadHiddenBookIds() {
+  try {
+    const raw = localStorage.getItem("intently_hidden_book_ids");
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveHiddenBookIds() {
+  try {
+    localStorage.setItem("intently_hidden_book_ids", JSON.stringify([...hiddenBookIds]));
+  } catch {
+    // ignore storage failures (private browsing, etc.)
+  }
+}
+
+let hiddenBookIds = loadHiddenBookIds();
+
+function colorForBook(bookId) {
+  const index = cachedBooks.findIndex((b) => b.id === bookId);
+  return CALENDAR_COLORS[Math.max(0, index) % CALENDAR_COLORS.length];
+}
+
+function renderReadingCalendarPicker() {
+  readingCalendarPicker.innerHTML = "";
+  for (const book of cachedBooks) {
+    const li = document.createElement("li");
+    li.className = "habit-picker-item";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = !hiddenBookIds.has(book.id);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) hiddenBookIds.delete(book.id);
+      else hiddenBookIds.add(book.id);
+      saveHiddenBookIds();
+      renderReadingCalendar();
+    });
+
+    const swatch = document.createElement("span");
+    swatch.className = "color-swatch";
+    swatch.style.background = colorForBook(book.id);
+
+    const name = document.createElement("span");
+    name.textContent = book.title;
+
+    li.append(checkbox, swatch, name);
+    readingCalendarPicker.appendChild(li);
+  }
+}
+
+function renderReadingCalendar() {
+  const year = readingCalendarMonth.getFullYear();
+  const month = readingCalendarMonth.getMonth();
+  readingCalendarMonthLabel.textContent = readingCalendarMonth.toLocaleString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+
+  readingCalendarGrid.innerHTML = "";
+  for (const wd of ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]) {
+    const el = document.createElement("div");
+    el.className = "calendar-weekday";
+    el.textContent = wd;
+    readingCalendarGrid.appendChild(el);
+  }
+
+  const startOffset = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const visibleBooks = cachedBooks.filter((b) => !hiddenBookIds.has(b.id));
+  const today = todayStr();
+
+  for (let i = 0; i < startOffset; i++) {
+    const pad = document.createElement("div");
+    pad.className = "calendar-day empty";
+    readingCalendarGrid.appendChild(pad);
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const cell = document.createElement("div");
+    cell.className = "calendar-day" + (dateStr === today ? " calendar-today" : "");
+
+    const num = document.createElement("div");
+    num.className = "calendar-day-num";
+    num.textContent = day;
+    cell.appendChild(num);
+
+    const dots = document.createElement("div");
+    dots.className = "calendar-dots";
+    for (const book of visibleBooks) {
+      const hasSession = cachedReadingSessions.some(
+        (s) => s.book_id === book.id && s.for_date === dateStr
+      );
+      if (hasSession) {
+        const dot = document.createElement("span");
+        dot.className = "calendar-dot";
+        dot.style.background = colorForBook(book.id);
+        dot.title = book.title;
+        dots.appendChild(dot);
+      }
+    }
+    cell.appendChild(dots);
+    readingCalendarGrid.appendChild(cell);
+  }
+}
+
+document.getElementById("reading-calendar-prev").addEventListener("click", () => {
+  readingCalendarMonth.setMonth(readingCalendarMonth.getMonth() - 1);
+  renderReadingCalendar();
+});
+
+document.getElementById("reading-calendar-next").addEventListener("click", () => {
+  readingCalendarMonth.setMonth(readingCalendarMonth.getMonth() + 1);
+  renderReadingCalendar();
+});
+
 // ---------- Refresh ----------
 
 function refreshAll() {
   loadIntentions();
   loadHabits();
   loadBounties();
+  loadBooks();
+  loadReadingSessions();
 }
 
 if ("serviceWorker" in navigator) {

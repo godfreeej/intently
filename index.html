@@ -32,6 +32,7 @@
       <button class="tab-btn active" data-tab="today">Today</button>
       <button class="tab-btn" data-tab="bounties">Bounties</button>
       <button class="tab-btn" data-tab="calendar">Calendar</button>
+      <button class="tab-btn" data-tab="reading">Reading</button>
       <button class="tab-btn" data-tab="habits-manage">Manage Habits</button>
       <button id="logout-btn" class="link-btn">Log out</button>
     </nav>
@@ -44,6 +45,14 @@
         <p class="hint">What you planned last night.</p>
         <ul id="today-intentions-list" class="list"></ul>
         <p id="today-intentions-empty" class="hint hidden">Nothing planned for today — add intentions below the night before.</p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header-row">
+          <h2>Bounty board</h2>
+        </div>
+        <ul id="today-bounties-list" class="list"></ul>
+        <p id="today-bounties-empty" class="hint hidden">No active bounties — add one in the Bounties tab.</p>
       </section>
 
       <section class="panel">
@@ -117,6 +126,35 @@
       </section>
     </section>
 
+    <section id="tab-reading" class="tab-panel">
+      <section class="panel">
+        <h2>My books</h2>
+        <ul id="books-list" class="list"></ul>
+        <p id="books-empty" class="hint hidden">No books yet — add one below.</p>
+        <form id="book-form" class="add-form">
+          <input type="text" id="book-title" placeholder="Title" required />
+          <input type="text" id="book-author" placeholder="Author (optional)" />
+          <select id="book-status">
+            <option value="to_read">To read</option>
+            <option value="reading">Reading</option>
+            <option value="finished">Finished</option>
+          </select>
+          <button type="submit">Add book</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Reading calendar</h2>
+        <ul id="reading-calendar-picker" class="habit-picker"></ul>
+        <div class="calendar-header">
+          <button id="reading-calendar-prev" class="icon-btn" title="Previous month">‹</button>
+          <h3 id="reading-calendar-month-label"></h3>
+          <button id="reading-calendar-next" class="icon-btn" title="Next month">›</button>
+        </div>
+        <div id="reading-calendar-grid" class="calendar-grid"></div>
+      </section>
+    </section>
+
     <section id="tab-habits-manage" class="tab-panel">
       <section class="panel">
         <h2>Manage habits</h2>
@@ -133,6 +171,10 @@
             <input type="number" id="habit-xp" min="0" step="1" value="1" required />
           </label>
           <p id="habit-xp-hint" class="hint"></p>
+          <label id="habit-tracks-books-row" class="xp-field hidden">
+            <input type="checkbox" id="habit-tracks-books" />
+            Track specific books (logs minutes against a book from your Reading list)
+          </label>
           <button type="submit">Add habit</button>
         </form>
       </section>

@@ -24,6 +24,7 @@ create table habits (
   name text not null,
   kind text not null default 'once' check (kind in ('once', 'multi', 'duration')),
   xp_value integer not null default 1,
+  tracks_books boolean not null default false,
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
@@ -58,10 +59,34 @@ alter table habits enable row level security;
 alter table habit_logs enable row level security;
 alter table bounties enable row level security;
 
+create table books (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id),
+  title text not null,
+  author text,
+  status text not null default 'to_read' check (status in ('to_read', 'reading', 'finished')),
+  created_at timestamptz not null default now()
+);
+
+create table reading_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id),
+  habit_id uuid not null references habits(id) on delete cascade,
+  book_id uuid not null references books(id) on delete cascade,
+  for_date date not null,
+  minutes integer not null default 1,
+  created_at timestamptz not null default now()
+);
+
+alter table books enable row level security;
+alter table reading_sessions enable row level security;
+
 create policy "owner access" on intentions for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "owner access" on habits for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "owner access" on habit_logs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "owner access" on bounties for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "owner access" on books for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "owner access" on reading_sessions for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 ```
 
 3. Go to **Authentication → Users** and manually add yourself as a user (email + password). This is a single-user app, so no public sign-up screen is needed.
@@ -114,10 +139,12 @@ Open that URL on your phone and use "Add to Home Screen" (Safari/Chrome share me
   - **Timed** — log minutes spent (can add more than once a day); a streak just needs the total minutes to be above zero that day.
 - XP earned for a habit on a given day = (what you logged that day) × (that habit's XP value) — so a "once" habit awards its XP value flat, a "multi" habit multiplies by the tick count, and a "duration" habit multiplies by minutes logged (default 1 XP/minute). Today's and all-time XP totals show above the habit list.
 - A Calendar tab shows a month grid with a colored dot per habit on days it was logged, with a picker for which habits to show.
-- **Bounties** — one-off tasks worth a decaying amount of XP. No deadline, but a bounty starts at `multiplier_start` × its base XP (default 3×) and decays linearly down to a 1× floor over `decay_days` (default 7), so it's worth more the sooner you complete it. Completing one locks in whatever multiplier was active at that moment; abandoning one removes it with no XP. Today's/all-time XP totals (shown on both the Today and Bounties tabs) combine habit XP and bounty XP into one number.
+- **Bounties** — one-off tasks worth a decaying amount of XP. No deadline, but a bounty starts at `multiplier_start` × its base XP (default 3×) and decays linearly down to a 1× floor over `decay_days` (default 7), so it's worth more the sooner you complete it. Completing one locks in whatever multiplier was active at that moment; abandoning one removes it with no XP. A live bounty board also shows on the Today tab so you don't need to switch tabs to grab one. Today's/all-time XP totals (shown on Today and Bounties) combine habit XP and bounty XP into one number.
+- **Reading** — a dedicated tab for your book list (title, author, status: to read / reading / finished). Any "Timed" habit can be flagged "tracks specific books"; its control on Today then shows a book picker + minutes field instead of a plain duration counter — tap **+** with the field empty for a quick +1 minute, or type an amount for a longer session. Each log writes a `reading_sessions` row (so you know which book, not just a total) while still feeding the habit's normal XP/streak via `habit_logs`. The Reading tab's own calendar shows a colored dot per book per day it was read, with a picker for which books to show — separate from the main habit Calendar.
 
 ## Deliberately not in v1 (future ideas)
 
 - Evening reflection prompt
 - Claude-generated daily plans from free-form notes
 - XP levels, unlocks, or other heavier gamification
+- Chapter/page counts for books (reading sessions are minutes-only for now)
