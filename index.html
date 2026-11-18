@@ -113,6 +113,10 @@
     <section id="tab-calendar" class="tab-panel">
       <section class="panel">
         <h2>Calendar</h2>
+        <div class="picker-actions">
+          <button id="calendar-select-all" class="picker-action-btn">Select all</button>
+          <button id="calendar-select-none" class="picker-action-btn">Select none</button>
+        </div>
         <ul id="calendar-habit-picker" class="habit-picker"></ul>
       </section>
 
@@ -148,13 +152,17 @@
 
       <section class="panel">
         <h2>Reading calendar</h2>
+        <div class="picker-actions">
+          <button id="reading-calendar-select-all" class="picker-action-btn">Select all</button>
+          <button id="reading-calendar-select-none" class="picker-action-btn">Select none</button>
+        </div>
         <ul id="reading-calendar-picker" class="habit-picker"></ul>
         <div class="calendar-header">
           <button id="reading-calendar-prev" class="icon-btn" title="Previous month">‹</button>
           <h3 id="reading-calendar-month-label"></h3>
           <button id="reading-calendar-next" class="icon-btn" title="Next month">›</button>
         </div>
-        <div id="reading-calendar-grid" class="calendar-grid"></div>
+        <div id="reading-calendar-grid" class="reading-calendar-grid"></div>
       </section>
     </section>
 

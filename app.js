@@ -791,6 +791,20 @@ function renderCalendarPicker(habits) {
   }
 }
 
+document.getElementById("calendar-select-all").addEventListener("click", () => {
+  hiddenHabitIds.clear();
+  saveHiddenHabitIds();
+  renderCalendarPicker(cachedHabits);
+  renderCalendar();
+});
+
+document.getElementById("calendar-select-none").addEventListener("click", () => {
+  for (const habit of cachedHabits) hiddenHabitIds.add(habit.id);
+  saveHiddenHabitIds();
+  renderCalendarPicker(cachedHabits);
+  renderCalendar();
+});
+
 let calendarMonthDates = [];
 
 function buildCalendarDayCell(dateStr, today) {
@@ -1185,6 +1199,20 @@ function renderReadingCalendarPicker() {
     readingCalendarPicker.appendChild(li);
   }
 }
+
+document.getElementById("reading-calendar-select-all").addEventListener("click", () => {
+  hiddenBookIds.clear();
+  saveHiddenBookIds();
+  renderReadingCalendarPicker();
+  renderReadingCalendar();
+});
+
+document.getElementById("reading-calendar-select-none").addEventListener("click", () => {
+  for (const book of cachedBooks) hiddenBookIds.add(book.id);
+  saveHiddenBookIds();
+  renderReadingCalendarPicker();
+  renderReadingCalendar();
+});
 
 function renderReadingCalendar() {
   const year = readingCalendarMonth.getFullYear();
