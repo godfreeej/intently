@@ -71,8 +71,10 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
   });
 });
 
-// ---------- Intentions (plan for tomorrow) ----------
+// ---------- Intentions (today + plan for tomorrow) ----------
 
+const todayIntentionsList = document.getElementById("today-intentions-list");
+const todayIntentionsEmpty = document.getElementById("today-intentions-empty");
 const intentionsList = document.getElementById("intentions-list");
 const intentionForm = document.getElementById("intention-form");
 
@@ -80,25 +82,46 @@ async function loadIntentions() {
   const { data, error } = await sb
     .from("intentions")
     .select("*")
-    .eq("for_date", tomorrowStr())
+    .in("for_date", [todayStr(), tomorrowStr()])
     .order("created_at", { ascending: true });
   if (error) {
     console.error(error);
     return;
   }
-  renderIntentions(data || []);
+  const items = data || [];
+  const today = todayStr();
+  const tomorrow = tomorrowStr();
+
+  renderIntentionsList(
+    todayIntentionsList,
+    items.filter((i) => i.for_date === today),
+    { showCheckbox: true }
+  );
+  todayIntentionsEmpty.classList.toggle(
+    "hidden",
+    items.some((i) => i.for_date === today)
+  );
+
+  renderIntentionsList(
+    intentionsList,
+    items.filter((i) => i.for_date === tomorrow),
+    { showCheckbox: false }
+  );
 }
 
-function renderIntentions(items) {
-  intentionsList.innerHTML = "";
+function renderIntentionsList(container, items, { showCheckbox }) {
+  container.innerHTML = "";
   for (const item of items) {
     const li = document.createElement("li");
     li.className = "list-item" + (item.done ? " done" : "");
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = item.done;
-    checkbox.addEventListener("change", () => toggleIntentionDone(item.id, checkbox.checked));
+    if (showCheckbox) {
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = item.done;
+      checkbox.addEventListener("change", () => toggleIntentionDone(item.id, checkbox.checked));
+      li.appendChild(checkbox);
+    }
 
     const text = document.createElement("div");
     text.className = "item-text";
@@ -116,8 +139,8 @@ function renderIntentions(items) {
     deleteBtn.title = "Delete";
     deleteBtn.addEventListener("click", () => deleteIntention(item.id));
 
-    li.append(checkbox, text, deleteBtn);
-    intentionsList.appendChild(li);
+    li.append(text, deleteBtn);
+    container.appendChild(li);
   }
 }
 
