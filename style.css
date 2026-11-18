@@ -170,14 +170,16 @@ main {
 }
 
 .xp-banner-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(0, 0, 0, 0.25);
   border-radius: 999px;
   height: 14px;
   overflow: hidden;
 }
 
 .xp-banner-fill {
-  background: var(--accent-ink);
+  background: #ffffff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
   height: 100%;
   width: 0%;
   border-radius: 999px;

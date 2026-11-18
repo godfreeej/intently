@@ -281,7 +281,7 @@ function renderXpSummary() {
   }
   xpSummaryEl.textContent = `⚡ ${todayXp} XP today · ${allTimeXp} XP all-time`;
 
-  const pct = Math.min(100, (allTimeXp / XP_GOAL) * 100);
+  const pct = allTimeXp <= 0 ? 0 : Math.max(2, Math.min(100, (allTimeXp / XP_GOAL) * 100));
   xpBannerFill.style.width = `${pct}%`;
   xpBannerCount.textContent = `${Math.round(allTimeXp).toLocaleString()} / ${XP_GOAL.toLocaleString()} XP`;
   xpBannerCelebrate.classList.toggle("hidden", allTimeXp < XP_GOAL);
