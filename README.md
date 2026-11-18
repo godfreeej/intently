@@ -22,6 +22,7 @@ create table habits (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users(id),
   name text not null,
+  kind text not null default 'once' check (kind in ('once', 'multi')),
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
@@ -31,7 +32,7 @@ create table habit_logs (
   user_id uuid not null default auth.uid() references auth.users(id),
   habit_id uuid not null references habits(id) on delete cascade,
   for_date date not null,
-  completed boolean not null default true,
+  count integer not null default 0,
   unique (habit_id, for_date)
 );
 
@@ -88,7 +89,9 @@ Open that URL on your phone and use "Add to Home Screen" (Safari/Chrome share me
 ## What's in v1
 
 - Plan tomorrow's activities with a reason attached ("intentions")
-- Add/track habits with a daily checkbox and a running streak count
+- Add/track habits with a running streak count. Each habit is one of two kinds:
+  - **Once a day** — a checkbox; done or not done today.
+  - **Multiple times a day** — a +/− counter for things you might do several times (e.g. read a chapter). A streak just needs the count to be above zero that day.
 
 ## Deliberately not in v1 (future ideas)
 

@@ -172,8 +172,7 @@ async function loadHabits() {
 
   const { data: logs, error: logsErr } = await sb
     .from("habit_logs")
-    .select("*")
-    .eq("completed", true);
+    .select("*");
   if (logsErr) {
     console.error(logsErr);
     return;
@@ -185,7 +184,7 @@ async function loadHabits() {
 
 function computeStreak(habitId, logs) {
   const completedDates = new Set(
-    logs.filter((l) => l.habit_id === habitId).map((l) => l.for_date)
+    logs.filter((l) => l.habit_id === habitId && l.count > 0).map((l) => l.for_date)
   );
   const today = todayStr();
   const yesterday = addDaysStr(today, -1);
@@ -205,47 +204,81 @@ function computeStreak(habitId, logs) {
 }
 
 function renderHabitsToday(habits, logs) {
-  const active = habits.filter((h) => h.active);
+  const active = habits
+    .filter((h) => h.active)
+    .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "once" ? -1 : 1));
   habitsTodayList.innerHTML = "";
   habitsEmpty.classList.toggle("hidden", active.length > 0);
 
   const today = todayStr();
-  const doneToday = new Set(
-    logs.filter((l) => l.for_date === today).map((l) => l.habit_id)
+  const countToday = new Map(
+    logs.filter((l) => l.for_date === today).map((l) => [l.habit_id, l.count])
   );
 
   for (const habit of active) {
     const li = document.createElement("li");
     li.className = "list-item";
+    const currentCount = countToday.get(habit.id) || 0;
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = doneToday.has(habit.id);
-    checkbox.addEventListener("change", () => toggleHabitToday(habit.id, checkbox.checked));
+    const control = document.createElement("div");
+    control.className = "habit-control";
+    if (habit.kind === "once") {
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = currentCount > 0;
+      checkbox.addEventListener("change", () =>
+        setHabitCount(habit.id, checkbox.checked ? 1 : 0)
+      );
+      control.appendChild(checkbox);
+    } else {
+      const minusBtn = document.createElement("button");
+      minusBtn.className = "stepper-btn";
+      minusBtn.textContent = "−";
+      minusBtn.disabled = currentCount <= 0;
+      minusBtn.addEventListener("click", () => setHabitCount(habit.id, currentCount - 1));
+
+      const countEl = document.createElement("span");
+      countEl.className = "stepper-count";
+      countEl.textContent = currentCount;
+
+      const plusBtn = document.createElement("button");
+      plusBtn.className = "stepper-btn";
+      plusBtn.textContent = "+";
+      plusBtn.addEventListener("click", () => setHabitCount(habit.id, currentCount + 1));
+
+      control.append(minusBtn, countEl, plusBtn);
+    }
 
     const text = document.createElement("div");
     text.className = "item-text";
-    const name = document.createElement("div");
+    const nameRow = document.createElement("div");
+    nameRow.className = "item-title-row";
+    const name = document.createElement("span");
     name.className = "item-title";
     name.textContent = habit.name;
+    const badge = document.createElement("span");
+    badge.className = "badge " + (habit.kind === "once" ? "badge-once" : "badge-multi");
+    badge.textContent = habit.kind === "once" ? "Daily" : "Flexible";
+    nameRow.append(name, badge);
     const streak = document.createElement("div");
     streak.className = "item-reason";
     const streakCount = computeStreak(habit.id, logs);
     streak.textContent = streakCount > 0 ? `🔥 ${streakCount} day streak` : "No current streak";
-    text.append(name, streak);
+    text.append(nameRow, streak);
 
-    li.append(checkbox, text);
+    li.append(control, text);
     habitsTodayList.appendChild(li);
   }
 }
 
-async function toggleHabitToday(habitId, completed) {
+async function setHabitCount(habitId, count) {
+  const safeCount = Math.max(0, count);
   const today = todayStr();
   const { data: userData } = await sb.auth.getUser();
   const { error } = await sb
     .from("habit_logs")
     .upsert(
-      { habit_id: habitId, for_date: today, completed, user_id: userData.user.id },
+      { habit_id: habitId, for_date: today, count: safeCount, user_id: userData.user.id },
       { onConflict: "habit_id,for_date" }
     );
   if (error) console.error(error);
@@ -260,10 +293,16 @@ function renderHabitsManage(habits) {
 
     const text = document.createElement("div");
     text.className = "item-text";
-    const name = document.createElement("div");
+    const nameRow = document.createElement("div");
+    nameRow.className = "item-title-row";
+    const name = document.createElement("span");
     name.className = "item-title";
     name.textContent = habit.name;
-    text.appendChild(name);
+    const badge = document.createElement("span");
+    badge.className = "badge " + (habit.kind === "once" ? "badge-once" : "badge-multi");
+    badge.textContent = habit.kind === "once" ? "Daily" : "Flexible";
+    nameRow.append(name, badge);
+    text.appendChild(nameRow);
 
     const toggleBtn = document.createElement("button");
     toggleBtn.className = "link-btn";
@@ -284,10 +323,12 @@ async function setHabitActive(id, active) {
 habitForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const nameInput = document.getElementById("habit-name");
+  const kindInput = document.getElementById("habit-kind");
   const { data: userData } = await sb.auth.getUser();
   const { error } = await sb.from("habits").insert({
     user_id: userData.user.id,
     name: nameInput.value.trim(),
+    kind: kindInput.value,
   });
   if (error) {
     console.error(error);
