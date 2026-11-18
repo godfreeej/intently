@@ -30,6 +30,7 @@
     <h1>Intently</h1>
     <nav>
       <button class="tab-btn active" data-tab="today">Today</button>
+      <button class="tab-btn" data-tab="calendar">Calendar</button>
       <button class="tab-btn" data-tab="habits-manage">Manage Habits</button>
       <button id="logout-btn" class="link-btn">Log out</button>
     </nav>
@@ -42,8 +43,8 @@
         <p class="hint">What do you want to experience, and why?</p>
         <ul id="intentions-list" class="list"></ul>
         <form id="intention-form" class="add-form">
-          <input type="text" id="intention-activity" placeholder="Activity (e.g. Read a chapter of Diaspora)" required />
-          <input type="text" id="intention-reason" placeholder="Why? (e.g. I want to get absorbed in its ideas)" required />
+          <input type="text" id="intention-activity" placeholder="Activity" required />
+          <input type="text" id="intention-reason" placeholder="Why?" required />
           <button type="submit">Add intention</button>
         </form>
       </section>
@@ -55,15 +56,31 @@
       </section>
     </section>
 
+    <section id="tab-calendar" class="tab-panel">
+      <section class="panel">
+        <h2>Calendar</h2>
+        <ul id="calendar-habit-picker" class="habit-picker"></ul>
+      </section>
+
+      <section class="panel">
+        <div class="calendar-header">
+          <button id="calendar-prev" class="icon-btn" title="Previous month">‹</button>
+          <h3 id="calendar-month-label"></h3>
+          <button id="calendar-next" class="icon-btn" title="Next month">›</button>
+        </div>
+        <div id="calendar-grid" class="calendar-grid"></div>
+      </section>
+    </section>
+
     <section id="tab-habits-manage" class="tab-panel">
       <section class="panel">
         <h2>Manage habits</h2>
         <ul id="habits-manage-list" class="list"></ul>
         <form id="habit-form" class="add-form">
-          <input type="text" id="habit-name" placeholder="New habit (e.g. Read before bed)" required />
+          <input type="text" id="habit-name" placeholder="New habit" required />
           <select id="habit-kind">
-            <option value="once">Once a day (e.g. pick up dog poop after work)</option>
-            <option value="multi">Multiple times a day (e.g. read a chapter)</option>
+            <option value="once">Once a day</option>
+            <option value="multi">Multiple times a day</option>
           </select>
           <button type="submit">Add habit</button>
         </form>

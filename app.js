@@ -160,6 +160,9 @@ const habitsEmpty = document.getElementById("habits-empty");
 const habitsManageList = document.getElementById("habits-manage-list");
 const habitForm = document.getElementById("habit-form");
 
+let cachedHabits = [];
+let cachedLogs = [];
+
 async function loadHabits() {
   const { data: habits, error: habitsErr } = await sb
     .from("habits")
@@ -178,8 +181,13 @@ async function loadHabits() {
     return;
   }
 
-  renderHabitsToday(habits || [], logs || []);
-  renderHabitsManage(habits || []);
+  cachedHabits = habits || [];
+  cachedLogs = logs || [];
+
+  renderHabitsToday(cachedHabits, cachedLogs);
+  renderHabitsManage(cachedHabits);
+  renderCalendarPicker(cachedHabits);
+  renderCalendar();
 }
 
 function computeStreak(habitId, logs) {
@@ -336,6 +344,135 @@ habitForm.addEventListener("submit", async (e) => {
   }
   nameInput.value = "";
   loadHabits();
+});
+
+// ---------- Calendar ----------
+
+const CALENDAR_COLORS = [
+  "#2f6b5e", "#b2552f", "#4a6fb5", "#9a4fb5", "#b5924f", "#4fb5a0", "#b54f6e", "#5f8f3e",
+];
+
+const calendarHabitPicker = document.getElementById("calendar-habit-picker");
+const calendarGrid = document.getElementById("calendar-grid");
+const calendarMonthLabel = document.getElementById("calendar-month-label");
+
+let calendarMonth = new Date();
+calendarMonth.setDate(1);
+
+function loadHiddenHabitIds() {
+  try {
+    const raw = localStorage.getItem("intently_hidden_habit_ids");
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveHiddenHabitIds() {
+  try {
+    localStorage.setItem("intently_hidden_habit_ids", JSON.stringify([...hiddenHabitIds]));
+  } catch {
+    // ignore storage failures (private browsing, etc.)
+  }
+}
+
+let hiddenHabitIds = loadHiddenHabitIds();
+
+function colorForHabit(habitId) {
+  const index = cachedHabits.findIndex((h) => h.id === habitId);
+  return CALENDAR_COLORS[Math.max(0, index) % CALENDAR_COLORS.length];
+}
+
+function renderCalendarPicker(habits) {
+  calendarHabitPicker.innerHTML = "";
+  for (const habit of habits) {
+    const li = document.createElement("li");
+    li.className = "habit-picker-item" + (habit.active ? "" : " inactive");
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = !hiddenHabitIds.has(habit.id);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) hiddenHabitIds.delete(habit.id);
+      else hiddenHabitIds.add(habit.id);
+      saveHiddenHabitIds();
+      renderCalendar();
+    });
+
+    const swatch = document.createElement("span");
+    swatch.className = "color-swatch";
+    swatch.style.background = colorForHabit(habit.id);
+
+    const name = document.createElement("span");
+    name.textContent = habit.name;
+
+    li.append(checkbox, swatch, name);
+    calendarHabitPicker.appendChild(li);
+  }
+}
+
+function renderCalendar() {
+  const year = calendarMonth.getFullYear();
+  const month = calendarMonth.getMonth();
+  calendarMonthLabel.textContent = calendarMonth.toLocaleString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+
+  calendarGrid.innerHTML = "";
+  for (const wd of ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]) {
+    const el = document.createElement("div");
+    el.className = "calendar-weekday";
+    el.textContent = wd;
+    calendarGrid.appendChild(el);
+  }
+
+  const startOffset = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const visibleHabits = cachedHabits.filter((h) => !hiddenHabitIds.has(h.id));
+  const today = todayStr();
+
+  for (let i = 0; i < startOffset; i++) {
+    const pad = document.createElement("div");
+    pad.className = "calendar-day empty";
+    calendarGrid.appendChild(pad);
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const cell = document.createElement("div");
+    cell.className = "calendar-day" + (dateStr === today ? " calendar-today" : "");
+
+    const num = document.createElement("div");
+    num.className = "calendar-day-num";
+    num.textContent = day;
+    cell.appendChild(num);
+
+    const dots = document.createElement("div");
+    dots.className = "calendar-dots";
+    for (const habit of visibleHabits) {
+      const log = cachedLogs.find((l) => l.habit_id === habit.id && l.for_date === dateStr);
+      if (log && log.count > 0) {
+        const dot = document.createElement("span");
+        dot.className = "calendar-dot";
+        dot.style.background = colorForHabit(habit.id);
+        dot.title = habit.name;
+        dots.appendChild(dot);
+      }
+    }
+    cell.appendChild(dots);
+    calendarGrid.appendChild(cell);
+  }
+}
+
+document.getElementById("calendar-prev").addEventListener("click", () => {
+  calendarMonth.setMonth(calendarMonth.getMonth() - 1);
+  renderCalendar();
+});
+
+document.getElementById("calendar-next").addEventListener("click", () => {
+  calendarMonth.setMonth(calendarMonth.getMonth() + 1);
+  renderCalendar();
 });
 
 // ---------- Refresh ----------
