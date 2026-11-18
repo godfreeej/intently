@@ -791,6 +791,37 @@ function renderCalendarPicker(habits) {
   }
 }
 
+let calendarMonthDates = [];
+
+function buildCalendarDayCell(dateStr, today) {
+  const day = Number(dateStr.slice(8, 10));
+  const cell = document.createElement("div");
+  cell.className = "calendar-day" + (dateStr === today ? " calendar-today" : "");
+  cell.addEventListener("click", () => showCalendarDetail([dateStr], formatDayLabel(dateStr)));
+
+  const num = document.createElement("div");
+  num.className = "calendar-day-num";
+  num.textContent = day;
+  cell.appendChild(num);
+
+  const dots = document.createElement("div");
+  dots.className = "calendar-dots";
+  const visibleHabits = cachedHabits.filter((h) => !hiddenHabitIds.has(h.id));
+  for (const habit of visibleHabits) {
+    const log = cachedLogs.find((l) => l.habit_id === habit.id && l.for_date === dateStr);
+    if (log && log.value > 0) {
+      const dot = document.createElement("span");
+      dot.className = "calendar-dot";
+      dot.style.background = colorForHabit(habit.id);
+      dot.title =
+        habit.kind === "duration" ? `${habit.name}: ${log.value} ${habit.unit || "min"}` : habit.name;
+      dots.appendChild(dot);
+    }
+  }
+  cell.appendChild(dots);
+  return cell;
+}
+
 function renderCalendar() {
   const year = calendarMonth.getFullYear();
   const month = calendarMonth.getMonth();
@@ -806,43 +837,145 @@ function renderCalendar() {
     el.textContent = wd;
     calendarGrid.appendChild(el);
   }
+  calendarGrid.appendChild(document.createElement("div")).className = "calendar-weekday";
 
   const startOffset = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const visibleHabits = cachedHabits.filter((h) => !hiddenHabitIds.has(h.id));
   const today = todayStr();
 
-  for (let i = 0; i < startOffset; i++) {
-    const pad = document.createElement("div");
-    pad.className = "calendar-day empty";
-    calendarGrid.appendChild(pad);
-  }
-
+  const cells = [];
+  for (let i = 0; i < startOffset; i++) cells.push(null);
   for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const cell = document.createElement("div");
-    cell.className = "calendar-day" + (dateStr === today ? " calendar-today" : "");
+    cells.push(`${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`);
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
 
-    const num = document.createElement("div");
-    num.className = "calendar-day-num";
-    num.textContent = day;
-    cell.appendChild(num);
+  calendarMonthDates = cells.filter((d) => d !== null);
 
-    const dots = document.createElement("div");
-    dots.className = "calendar-dots";
-    for (const habit of visibleHabits) {
-      const log = cachedLogs.find((l) => l.habit_id === habit.id && l.for_date === dateStr);
-      if (log && log.value > 0) {
-        const dot = document.createElement("span");
-        dot.className = "calendar-dot";
-        dot.style.background = colorForHabit(habit.id);
-        dot.title = habit.name;
-        dots.appendChild(dot);
+  for (let i = 0; i < cells.length; i += 7) {
+    const week = cells.slice(i, i + 7);
+    for (const dateStr of week) {
+      if (dateStr === null) {
+        const pad = document.createElement("div");
+        pad.className = "calendar-day empty";
+        calendarGrid.appendChild(pad);
+      } else {
+        calendarGrid.appendChild(buildCalendarDayCell(dateStr, today));
       }
     }
-    cell.appendChild(dots);
-    calendarGrid.appendChild(cell);
+    const weekDates = week.filter((d) => d !== null);
+    const weekBtn = document.createElement("button");
+    weekBtn.className = "icon-btn calendar-week-btn";
+    weekBtn.textContent = "Σ";
+    weekBtn.title = "Week summary";
+    weekBtn.addEventListener("click", () =>
+      showCalendarDetail(weekDates, formatWeekLabel(weekDates))
+    );
+    calendarGrid.appendChild(weekBtn);
   }
+
+  const detailEl = document.getElementById("calendar-detail");
+  if (!detailEl.classList.contains("hidden") && detailEl.dataset.dates) {
+    const dates = JSON.parse(detailEl.dataset.dates);
+    showCalendarDetail(dates, detailEl.dataset.label);
+  }
+}
+
+function formatDayLabel(dateStr) {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatWeekLabel(weekDates) {
+  if (weekDates.length === 0) return "Week";
+  const fmt = (d) =>
+    new Date(d + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return `Week of ${fmt(weekDates[0])} – ${fmt(weekDates[weekDates.length - 1])}`;
+}
+
+function showCalendarDetail(dateStrs, label) {
+  const detailEl = document.getElementById("calendar-detail");
+  detailEl.dataset.dates = JSON.stringify(dateStrs);
+  detailEl.dataset.label = label;
+
+  const visibleHabits = cachedHabits.filter((h) => !hiddenHabitIds.has(h.id));
+  const rows = [];
+  for (const habit of visibleHabits) {
+    let total = 0;
+    let daysActive = 0;
+    for (const dateStr of dateStrs) {
+      const log = cachedLogs.find((l) => l.habit_id === habit.id && l.for_date === dateStr);
+      if (log && log.value > 0) {
+        total += Number(log.value);
+        daysActive += 1;
+      }
+    }
+    if (daysActive === 0) continue;
+
+    let text;
+    if (habit.kind === "duration") {
+      text = `${total} ${habit.unit || "min"}`;
+    } else if (habit.kind === "multi") {
+      text = `${total} total`;
+    } else {
+      text = "done";
+    }
+    if (dateStrs.length > 1) text += ` · ${daysActive}/${dateStrs.length} days active`;
+
+    rows.push({ habit, text });
+  }
+
+  detailEl.innerHTML = "";
+
+  const header = document.createElement("div");
+  header.className = "calendar-detail-header";
+  const title = document.createElement("strong");
+  title.textContent = label;
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "icon-btn";
+  closeBtn.textContent = "✕";
+  closeBtn.title = "Close";
+  closeBtn.addEventListener("click", () => {
+    detailEl.classList.add("hidden");
+    delete detailEl.dataset.dates;
+    delete detailEl.dataset.label;
+  });
+  header.append(title, closeBtn);
+  detailEl.appendChild(header);
+
+  if (rows.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "hint";
+    empty.textContent = "Nothing logged.";
+    detailEl.appendChild(empty);
+  } else {
+    const list = document.createElement("ul");
+    list.className = "list";
+    for (const { habit, text } of rows) {
+      const li = document.createElement("li");
+      li.className = "list-item";
+      const swatch = document.createElement("span");
+      swatch.className = "color-swatch";
+      swatch.style.background = colorForHabit(habit.id);
+      const t = document.createElement("div");
+      t.className = "item-text";
+      const name = document.createElement("div");
+      name.className = "item-title";
+      name.textContent = habit.name;
+      const detail = document.createElement("div");
+      detail.className = "item-reason";
+      detail.textContent = text;
+      t.append(name, detail);
+      li.append(swatch, t);
+      list.appendChild(li);
+    }
+    detailEl.appendChild(list);
+  }
+
+  detailEl.classList.remove("hidden");
 }
 
 document.getElementById("calendar-prev").addEventListener("click", () => {
@@ -853,6 +986,13 @@ document.getElementById("calendar-prev").addEventListener("click", () => {
 document.getElementById("calendar-next").addEventListener("click", () => {
   calendarMonth.setMonth(calendarMonth.getMonth() + 1);
   renderCalendar();
+});
+
+document.getElementById("calendar-month-summary-btn").addEventListener("click", () => {
+  showCalendarDetail(
+    calendarMonthDates,
+    calendarMonth.toLocaleString(undefined, { month: "long", year: "numeric" })
+  );
 });
 
 // ---------- Reading (books + reading sessions) ----------

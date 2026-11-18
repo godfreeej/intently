@@ -372,8 +372,38 @@ main {
 
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, 1fr) auto;
   gap: 4px;
+  align-items: center;
+}
+
+.calendar-month-summary-btn {
+  display: inline-block;
+  margin: -4px 0 10px;
+  padding: 0;
+}
+
+.calendar-week-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  justify-self: center;
+}
+
+.calendar-detail {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.calendar-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
 }
 
 .calendar-weekday {
@@ -391,7 +421,10 @@ main {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  cursor: pointer;
 }
+
+.calendar-day.empty { cursor: default; }
 
 .calendar-day.empty { background: transparent; }
 
