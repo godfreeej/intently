@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Intently</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#2f6b5e" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div id="login-view" class="view">
+  <div class="login-card">
+    <h1>Intently</h1>
+    <p class="subtitle">Plan tomorrow on purpose.</p>
+    <form id="login-form">
+      <label>Email<input type="email" id="login-email" required autocomplete="username" /></label>
+      <label>Password<input type="password" id="login-password" required autocomplete="current-password" /></label>
+      <button type="submit">Log in</button>
+      <p id="login-error" class="error"></p>
+    </form>
+  </div>
+</div>
+
+<div id="app-view" class="view hidden">
+  <header>
+    <h1>Intently</h1>
+    <nav>
+      <button class="tab-btn active" data-tab="today">Today</button>
+      <button class="tab-btn" data-tab="habits-manage">Manage Habits</button>
+      <button id="logout-btn" class="link-btn">Log out</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="tab-today" class="tab-panel active">
+      <section class="panel">
+        <h2>Plan for tomorrow</h2>
+        <p class="hint">What do you want to experience, and why?</p>
+        <ul id="intentions-list" class="list"></ul>
+        <form id="intention-form" class="add-form">
+          <input type="text" id="intention-activity" placeholder="Activity (e.g. Read a chapter of Diaspora)" required />
+          <input type="text" id="intention-reason" placeholder="Why? (e.g. I want to get absorbed in its ideas)" required />
+          <button type="submit">Add intention</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Habits</h2>
+        <ul id="habits-today-list" class="list"></ul>
+        <p id="habits-empty" class="hint hidden">No active habits yet — add one in Manage Habits.</p>
+      </section>
+    </section>
+
+    <section id="tab-habits-manage" class="tab-panel">
+      <section class="panel">
+        <h2>Manage habits</h2>
+        <ul id="habits-manage-list" class="list"></ul>
+        <form id="habit-form" class="add-form">
+          <input type="text" id="habit-name" placeholder="New habit (e.g. Read before bed)" required />
+          <button type="submit">Add habit</button>
+        </form>
+      </section>
+    </section>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
