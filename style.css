@@ -156,6 +156,41 @@ main {
   color: var(--accent);
 }
 
+.xp-banner {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+}
+
+.xp-banner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  color: var(--accent-ink);
+  margin-bottom: 10px;
+}
+
+.xp-banner-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 999px;
+  height: 14px;
+  overflow: hidden;
+}
+
+.xp-banner-fill {
+  background: var(--accent-ink);
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.xp-banner-celebrate {
+  margin: 10px 0 0;
+  text-align: center;
+  font-weight: 700;
+  color: var(--accent-ink);
+}
+
 .list { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 
 .list-item {

@@ -257,6 +257,11 @@ function xpForLog(habit, value) {
   return value * (habit.xp_value || 0);
 }
 
+const XP_GOAL = 10000;
+const xpBannerCount = document.getElementById("xp-banner-count");
+const xpBannerFill = document.getElementById("xp-banner-fill");
+const xpBannerCelebrate = document.getElementById("xp-banner-celebrate");
+
 function renderXpSummary() {
   const today = todayStr();
   const habitById = new Map(cachedHabits.map((h) => [h.id, h]));
@@ -275,6 +280,11 @@ function renderXpSummary() {
     if (toLocalDateString(new Date(bounty.completed_at)) === today) todayXp += bounty.awarded_xp || 0;
   }
   xpSummaryEl.textContent = `⚡ ${todayXp} XP today · ${allTimeXp} XP all-time`;
+
+  const pct = Math.min(100, (allTimeXp / XP_GOAL) * 100);
+  xpBannerFill.style.width = `${pct}%`;
+  xpBannerCount.textContent = `${Math.round(allTimeXp).toLocaleString()} / ${XP_GOAL.toLocaleString()} XP`;
+  xpBannerCelebrate.classList.toggle("hidden", allTimeXp < XP_GOAL);
 }
 
 function renderHabitsToday(habits, logs) {
