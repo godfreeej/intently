@@ -5,6 +5,8 @@
   --muted: #6b7a72;
   --accent: #2f6b5e;
   --accent-ink: #ffffff;
+  --accent2: #b2552f;
+  --accent2-ink: #ffffff;
   --border: #e1dcd2;
   --done: #9aa89f;
 }
@@ -17,6 +19,8 @@
     --muted: #9aa89f;
     --accent: #5fb79a;
     --accent-ink: #11231d;
+    --accent2: #d98a5f;
+    --accent2-ink: #2a150b;
     --border: #333a35;
     --done: #5c6660;
   }
@@ -136,6 +140,22 @@ main {
 .panel h2 { margin: 0 0 4px; font-size: 17px; }
 .hint { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
 
+.panel-header-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.panel-header-row h2 { margin: 0; }
+
+.xp-summary {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
 .list { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 
 .list-item {
@@ -173,12 +193,50 @@ main {
 
 .badge-once { background: var(--accent); color: var(--accent-ink); }
 .badge-multi { background: var(--border); color: var(--muted); }
+.badge-duration { background: var(--accent2); color: var(--accent2-ink); }
 
 .habit-control {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.habit-control.duration-control {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 96px;
+}
+
+.duration-total-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.duration-total {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.duration-entry {
+  display: flex;
+  gap: 4px;
+}
+
+.duration-input {
+  width: 0;
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--ink);
+  font-size: 13px;
 }
 
 .habit-control input[type="checkbox"] {
@@ -232,6 +290,26 @@ main {
   color: var(--ink);
   font-size: 14px;
 }
+
+.xp-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.xp-field input {
+  width: 80px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.add-form .hint { margin: -4px 0 0; }
 
 .habit-picker {
   list-style: none;

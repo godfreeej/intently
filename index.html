@@ -50,7 +50,10 @@
       </section>
 
       <section class="panel">
-        <h2>Habits</h2>
+        <div class="panel-header-row">
+          <h2>Habits</h2>
+          <span id="xp-summary" class="xp-summary"></span>
+        </div>
         <ul id="habits-today-list" class="list"></ul>
         <p id="habits-empty" class="hint hidden">No active habits yet — add one in Manage Habits.</p>
       </section>
@@ -81,7 +84,13 @@
           <select id="habit-kind">
             <option value="once">Once a day</option>
             <option value="multi">Multiple times a day</option>
+            <option value="duration">Timed (log minutes)</option>
           </select>
+          <label class="xp-field">
+            XP value
+            <input type="number" id="habit-xp" min="0" step="1" value="1" required />
+          </label>
+          <p id="habit-xp-hint" class="hint"></p>
           <button type="submit">Add habit</button>
         </form>
       </section>

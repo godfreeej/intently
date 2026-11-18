@@ -159,6 +159,7 @@ const habitsTodayList = document.getElementById("habits-today-list");
 const habitsEmpty = document.getElementById("habits-empty");
 const habitsManageList = document.getElementById("habits-manage-list");
 const habitForm = document.getElementById("habit-form");
+const xpSummaryEl = document.getElementById("xp-summary");
 
 let cachedHabits = [];
 let cachedLogs = [];
@@ -192,7 +193,7 @@ async function loadHabits() {
 
 function computeStreak(habitId, logs) {
   const completedDates = new Set(
-    logs.filter((l) => l.habit_id === habitId && l.count > 0).map((l) => l.for_date)
+    logs.filter((l) => l.habit_id === habitId && l.value > 0).map((l) => l.for_date)
   );
   const today = todayStr();
   const yesterday = addDaysStr(today, -1);
@@ -211,50 +212,119 @@ function computeStreak(habitId, logs) {
   return streak;
 }
 
+const KIND_RANK = { once: 0, duration: 1, multi: 2 };
+const KIND_BADGE = { once: ["badge-once", "Daily"], multi: ["badge-multi", "Flexible"], duration: ["badge-duration", "Timed"] };
+
+function habitBadge(kind) {
+  const [cls, label] = KIND_BADGE[kind] || KIND_BADGE.once;
+  const badge = document.createElement("span");
+  badge.className = "badge " + cls;
+  badge.textContent = label;
+  return badge;
+}
+
+function xpForLog(habit, value) {
+  return value * (habit.xp_value || 0);
+}
+
+function renderXpSummary(habits, logs) {
+  const today = todayStr();
+  const habitById = new Map(habits.map((h) => [h.id, h]));
+  let todayXp = 0;
+  let allTimeXp = 0;
+  for (const log of logs) {
+    const habit = habitById.get(log.habit_id);
+    if (!habit) continue;
+    const xp = xpForLog(habit, log.value);
+    allTimeXp += xp;
+    if (log.for_date === today) todayXp += xp;
+  }
+  xpSummaryEl.textContent = `⚡ ${todayXp} XP today · ${allTimeXp} XP all-time`;
+}
+
 function renderHabitsToday(habits, logs) {
   const active = habits
     .filter((h) => h.active)
-    .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "once" ? -1 : 1));
+    .sort((a, b) => (KIND_RANK[a.kind] ?? 0) - (KIND_RANK[b.kind] ?? 0));
   habitsTodayList.innerHTML = "";
   habitsEmpty.classList.toggle("hidden", active.length > 0);
+  renderXpSummary(habits, logs);
 
   const today = todayStr();
-  const countToday = new Map(
-    logs.filter((l) => l.for_date === today).map((l) => [l.habit_id, l.count])
+  const valueToday = new Map(
+    logs.filter((l) => l.for_date === today).map((l) => [l.habit_id, l.value])
   );
 
   for (const habit of active) {
     const li = document.createElement("li");
     li.className = "list-item";
-    const currentCount = countToday.get(habit.id) || 0;
+    const currentValue = valueToday.get(habit.id) || 0;
 
     const control = document.createElement("div");
     control.className = "habit-control";
     if (habit.kind === "once") {
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
-      checkbox.checked = currentCount > 0;
+      checkbox.checked = currentValue > 0;
       checkbox.addEventListener("change", () =>
-        setHabitCount(habit.id, checkbox.checked ? 1 : 0)
+        setHabitValue(habit.id, checkbox.checked ? 1 : 0)
       );
       control.appendChild(checkbox);
-    } else {
+    } else if (habit.kind === "multi") {
       const minusBtn = document.createElement("button");
       minusBtn.className = "stepper-btn";
       minusBtn.textContent = "−";
-      minusBtn.disabled = currentCount <= 0;
-      minusBtn.addEventListener("click", () => setHabitCount(habit.id, currentCount - 1));
+      minusBtn.disabled = currentValue <= 0;
+      minusBtn.addEventListener("click", () => setHabitValue(habit.id, currentValue - 1));
 
       const countEl = document.createElement("span");
       countEl.className = "stepper-count";
-      countEl.textContent = currentCount;
+      countEl.textContent = currentValue;
 
       const plusBtn = document.createElement("button");
       plusBtn.className = "stepper-btn";
       plusBtn.textContent = "+";
-      plusBtn.addEventListener("click", () => setHabitCount(habit.id, currentCount + 1));
+      plusBtn.addEventListener("click", () => setHabitValue(habit.id, currentValue + 1));
 
       control.append(minusBtn, countEl, plusBtn);
+    } else {
+      control.classList.add("duration-control");
+
+      const totalEl = document.createElement("span");
+      totalEl.className = "duration-total";
+      totalEl.textContent = `${currentValue} min`;
+
+      const resetBtn = document.createElement("button");
+      resetBtn.className = "icon-btn";
+      resetBtn.textContent = "✕";
+      resetBtn.title = "Reset today";
+      resetBtn.addEventListener("click", () => setHabitValue(habit.id, 0));
+
+      const totalRow = document.createElement("div");
+      totalRow.className = "duration-total-row";
+      totalRow.append(totalEl, resetBtn);
+
+      const minutesInput = document.createElement("input");
+      minutesInput.type = "number";
+      minutesInput.min = "1";
+      minutesInput.className = "duration-input";
+      minutesInput.placeholder = "min";
+
+      const addBtn = document.createElement("button");
+      addBtn.className = "stepper-btn";
+      addBtn.textContent = "+";
+      addBtn.addEventListener("click", () => {
+        const minutes = parseInt(minutesInput.value, 10);
+        if (!minutes || minutes <= 0) return;
+        setHabitValue(habit.id, currentValue + minutes);
+        minutesInput.value = "";
+      });
+
+      const entryRow = document.createElement("div");
+      entryRow.className = "duration-entry";
+      entryRow.append(minutesInput, addBtn);
+
+      control.append(totalRow, entryRow);
     }
 
     const text = document.createElement("div");
@@ -264,10 +334,7 @@ function renderHabitsToday(habits, logs) {
     const name = document.createElement("span");
     name.className = "item-title";
     name.textContent = habit.name;
-    const badge = document.createElement("span");
-    badge.className = "badge " + (habit.kind === "once" ? "badge-once" : "badge-multi");
-    badge.textContent = habit.kind === "once" ? "Daily" : "Flexible";
-    nameRow.append(name, badge);
+    nameRow.append(name, habitBadge(habit.kind));
     const streak = document.createElement("div");
     streak.className = "item-reason";
     const streakCount = computeStreak(habit.id, logs);
@@ -279,14 +346,14 @@ function renderHabitsToday(habits, logs) {
   }
 }
 
-async function setHabitCount(habitId, count) {
-  const safeCount = Math.max(0, count);
+async function setHabitValue(habitId, value) {
+  const safeValue = Math.max(0, value);
   const today = todayStr();
   const { data: userData } = await sb.auth.getUser();
   const { error } = await sb
     .from("habit_logs")
     .upsert(
-      { habit_id: habitId, for_date: today, count: safeCount, user_id: userData.user.id },
+      { habit_id: habitId, for_date: today, value: safeValue, user_id: userData.user.id },
       { onConflict: "habit_id,for_date" }
     );
   if (error) console.error(error);
@@ -306,11 +373,13 @@ function renderHabitsManage(habits) {
     const name = document.createElement("span");
     name.className = "item-title";
     name.textContent = habit.name;
-    const badge = document.createElement("span");
-    badge.className = "badge " + (habit.kind === "once" ? "badge-once" : "badge-multi");
-    badge.textContent = habit.kind === "once" ? "Daily" : "Flexible";
-    nameRow.append(name, badge);
+    nameRow.append(name, habitBadge(habit.kind));
     text.appendChild(nameRow);
+    const xpLine = document.createElement("div");
+    xpLine.className = "item-reason";
+    xpLine.textContent =
+      habit.kind === "duration" ? `${habit.xp_value} XP / min` : `${habit.xp_value} XP`;
+    text.appendChild(xpLine);
 
     const toggleBtn = document.createElement("button");
     toggleBtn.className = "link-btn";
@@ -328,21 +397,38 @@ async function setHabitActive(id, active) {
   loadHabits();
 }
 
+const habitKindSelect = document.getElementById("habit-kind");
+const habitXpInput = document.getElementById("habit-xp");
+const habitXpHint = document.getElementById("habit-xp-hint");
+
+const XP_HINTS = {
+  once: "XP earned each day you complete it.",
+  multi: "XP earned each time you tick it up.",
+  duration: "XP earned per minute logged.",
+};
+
+function updateXpHint() {
+  habitXpHint.textContent = XP_HINTS[habitKindSelect.value] || "";
+}
+habitKindSelect.addEventListener("change", updateXpHint);
+updateXpHint();
+
 habitForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const nameInput = document.getElementById("habit-name");
-  const kindInput = document.getElementById("habit-kind");
   const { data: userData } = await sb.auth.getUser();
   const { error } = await sb.from("habits").insert({
     user_id: userData.user.id,
     name: nameInput.value.trim(),
-    kind: kindInput.value,
+    kind: habitKindSelect.value,
+    xp_value: parseInt(habitXpInput.value, 10) || 0,
   });
   if (error) {
     console.error(error);
     return;
   }
   nameInput.value = "";
+  habitXpInput.value = "1";
   loadHabits();
 });
 
@@ -452,7 +538,7 @@ function renderCalendar() {
     dots.className = "calendar-dots";
     for (const habit of visibleHabits) {
       const log = cachedLogs.find((l) => l.habit_id === habit.id && l.for_date === dateStr);
-      if (log && log.count > 0) {
+      if (log && log.value > 0) {
         const dot = document.createElement("span");
         dot.className = "calendar-dot";
         dot.style.background = colorForHabit(habit.id);
