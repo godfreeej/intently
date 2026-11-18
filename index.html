@@ -30,6 +30,7 @@
     <h1>Intently</h1>
     <nav>
       <button class="tab-btn active" data-tab="today">Today</button>
+      <button class="tab-btn" data-tab="bounties">Bounties</button>
       <button class="tab-btn" data-tab="calendar">Calendar</button>
       <button class="tab-btn" data-tab="habits-manage">Manage Habits</button>
       <button id="logout-btn" class="link-btn">Log out</button>
@@ -63,6 +64,40 @@
         </div>
         <ul id="habits-today-list" class="list"></ul>
         <p id="habits-empty" class="hint hidden">No active habits yet — add one in Manage Habits.</p>
+      </section>
+    </section>
+
+    <section id="tab-bounties" class="tab-panel">
+      <section class="panel">
+        <div class="panel-header-row">
+          <h2>Bounties</h2>
+          <span id="bounty-xp-summary" class="xp-summary"></span>
+        </div>
+        <p class="hint">Worth more the sooner you do them. No deadline — they just decay to a floor value.</p>
+        <ul id="bounties-active-list" class="list"></ul>
+        <p id="bounties-empty" class="hint hidden">No active bounties — add one below.</p>
+        <form id="bounty-form" class="add-form">
+          <input type="text" id="bounty-title" placeholder="Bounty" required />
+          <label class="xp-field">
+            Base XP
+            <input type="number" id="bounty-base-xp" min="0" step="1" value="10" required />
+          </label>
+          <label class="xp-field">
+            Starting multiplier
+            <input type="number" id="bounty-multiplier" min="1" step="0.1" value="3" required />
+          </label>
+          <label class="xp-field">
+            Decays to 1× over (days)
+            <input type="number" id="bounty-decay-days" min="0.5" step="0.5" value="7" required />
+          </label>
+          <button type="submit">Add bounty</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Completed</h2>
+        <ul id="bounties-completed-list" class="list"></ul>
+        <p id="bounties-completed-empty" class="hint hidden">Nothing completed yet.</p>
       </section>
     </section>
 

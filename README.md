@@ -41,9 +41,27 @@ alter table intentions enable row level security;
 alter table habits enable row level security;
 alter table habit_logs enable row level security;
 
+create table bounties (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id),
+  title text not null,
+  base_xp integer not null,
+  multiplier_start numeric not null default 3,
+  decay_days numeric not null default 7,
+  created_at timestamptz not null default now(),
+  completed_at timestamptz,
+  awarded_xp integer
+);
+
+alter table intentions enable row level security;
+alter table habits enable row level security;
+alter table habit_logs enable row level security;
+alter table bounties enable row level security;
+
 create policy "owner access" on intentions for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "owner access" on habits for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "owner access" on habit_logs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "owner access" on bounties for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 ```
 
 3. Go to **Authentication → Users** and manually add yourself as a user (email + password). This is a single-user app, so no public sign-up screen is needed.
@@ -96,10 +114,10 @@ Open that URL on your phone and use "Add to Home Screen" (Safari/Chrome share me
   - **Timed** — log minutes spent (can add more than once a day); a streak just needs the total minutes to be above zero that day.
 - XP earned for a habit on a given day = (what you logged that day) × (that habit's XP value) — so a "once" habit awards its XP value flat, a "multi" habit multiplies by the tick count, and a "duration" habit multiplies by minutes logged (default 1 XP/minute). Today's and all-time XP totals show above the habit list.
 - A Calendar tab shows a month grid with a colored dot per habit on days it was logged, with a picker for which habits to show.
+- **Bounties** — one-off tasks worth a decaying amount of XP. No deadline, but a bounty starts at `multiplier_start` × its base XP (default 3×) and decays linearly down to a 1× floor over `decay_days` (default 7), so it's worth more the sooner you complete it. Completing one locks in whatever multiplier was active at that moment; abandoning one removes it with no XP. Today's/all-time XP totals (shown on both the Today and Bounties tabs) combine habit XP and bounty XP into one number.
 
 ## Deliberately not in v1 (future ideas)
 
-- Bounties / points for one-off behaviors (separate from habit XP)
 - Evening reflection prompt
 - Claude-generated daily plans from free-form notes
 - XP levels, unlocks, or other heavier gamification

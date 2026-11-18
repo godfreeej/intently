@@ -186,6 +186,7 @@ const xpSummaryEl = document.getElementById("xp-summary");
 
 let cachedHabits = [];
 let cachedLogs = [];
+let cachedBounties = [];
 
 async function loadHabits() {
   const { data: habits, error: habitsErr } = await sb
@@ -250,17 +251,22 @@ function xpForLog(habit, value) {
   return value * (habit.xp_value || 0);
 }
 
-function renderXpSummary(habits, logs) {
+function renderXpSummary() {
   const today = todayStr();
-  const habitById = new Map(habits.map((h) => [h.id, h]));
+  const habitById = new Map(cachedHabits.map((h) => [h.id, h]));
   let todayXp = 0;
   let allTimeXp = 0;
-  for (const log of logs) {
+  for (const log of cachedLogs) {
     const habit = habitById.get(log.habit_id);
     if (!habit) continue;
     const xp = xpForLog(habit, log.value);
     allTimeXp += xp;
     if (log.for_date === today) todayXp += xp;
+  }
+  for (const bounty of cachedBounties) {
+    if (!bounty.completed_at) continue;
+    allTimeXp += bounty.awarded_xp || 0;
+    if (toLocalDateString(new Date(bounty.completed_at)) === today) todayXp += bounty.awarded_xp || 0;
   }
   xpSummaryEl.textContent = `⚡ ${todayXp} XP today · ${allTimeXp} XP all-time`;
 }
@@ -271,7 +277,7 @@ function renderHabitsToday(habits, logs) {
     .sort((a, b) => (KIND_RANK[a.kind] ?? 0) - (KIND_RANK[b.kind] ?? 0));
   habitsTodayList.innerHTML = "";
   habitsEmpty.classList.toggle("hidden", active.length > 0);
-  renderXpSummary(habits, logs);
+  renderXpSummary();
 
   const today = todayStr();
   const valueToday = new Map(
@@ -455,6 +461,176 @@ habitForm.addEventListener("submit", async (e) => {
   loadHabits();
 });
 
+// ---------- Bounties ----------
+
+const bountiesActiveList = document.getElementById("bounties-active-list");
+const bountiesEmpty = document.getElementById("bounties-empty");
+const bountiesCompletedList = document.getElementById("bounties-completed-list");
+const bountiesCompletedEmpty = document.getElementById("bounties-completed-empty");
+const bountyXpSummaryEl = document.getElementById("bounty-xp-summary");
+const bountyForm = document.getElementById("bounty-form");
+
+function bountyMultiplier(bounty, atMs = Date.now()) {
+  const createdMs = new Date(bounty.created_at).getTime();
+  const decayMs = bounty.decay_days * 24 * 60 * 60 * 1000;
+  const start = bounty.multiplier_start;
+  if (decayMs <= 0) return 1;
+  const t = Math.min(Math.max((atMs - createdMs) / decayMs, 0), 1);
+  return start - (start - 1) * t;
+}
+
+function bountyCurrentXp(bounty) {
+  return Math.round(bounty.base_xp * bountyMultiplier(bounty));
+}
+
+async function loadBounties() {
+  const { data, error } = await sb
+    .from("bounties")
+    .select("*")
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.error(error);
+    return;
+  }
+  cachedBounties = data || [];
+  renderBounties();
+  renderXpSummary();
+}
+
+function renderBounties() {
+  const pending = cachedBounties.filter((b) => !b.completed_at);
+  const completed = cachedBounties.filter((b) => b.completed_at);
+
+  pending.sort((a, b) => bountyCurrentXp(b) - bountyCurrentXp(a));
+  completed.sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
+
+  bountiesActiveList.innerHTML = "";
+  bountiesEmpty.classList.toggle("hidden", pending.length > 0);
+
+  for (const bounty of pending) {
+    const li = document.createElement("li");
+    li.className = "list-item";
+
+    const completeBtn = document.createElement("button");
+    completeBtn.className = "stepper-btn";
+    completeBtn.textContent = "✓";
+    completeBtn.title = "Complete";
+    completeBtn.addEventListener("click", () => completeBounty(bounty.id));
+
+    const text = document.createElement("div");
+    text.className = "item-text";
+    const title = document.createElement("div");
+    title.className = "item-title";
+    title.textContent = bounty.title;
+
+    const currentXp = bountyCurrentXp(bounty);
+    const multiplier = bountyMultiplier(bounty);
+    const atFloor = multiplier <= 1.001;
+    const floorAt = new Date(new Date(bounty.created_at).getTime() + bounty.decay_days * 86400000);
+
+    const detail = document.createElement("div");
+    detail.className = "item-reason";
+    detail.textContent = atFloor
+      ? `${currentXp} XP (at floor value)`
+      : `${currentXp} XP now (${multiplier.toFixed(1)}×) · floors ${floorAt.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+
+    text.append(title, detail);
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "icon-btn";
+    deleteBtn.textContent = "✕";
+    deleteBtn.title = "Abandon";
+    deleteBtn.addEventListener("click", () => deleteBounty(bounty.id));
+
+    li.append(completeBtn, text, deleteBtn);
+    bountiesActiveList.appendChild(li);
+  }
+
+  bountiesCompletedList.innerHTML = "";
+  bountiesCompletedEmpty.classList.toggle("hidden", completed.length > 0);
+
+  for (const bounty of completed) {
+    const li = document.createElement("li");
+    li.className = "list-item done";
+
+    const text = document.createElement("div");
+    text.className = "item-text";
+    const title = document.createElement("div");
+    title.className = "item-title";
+    title.textContent = bounty.title;
+    const detail = document.createElement("div");
+    detail.className = "item-reason";
+    detail.textContent = `${bounty.awarded_xp} XP · ${new Date(bounty.completed_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+    text.append(title, detail);
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "icon-btn";
+    deleteBtn.textContent = "✕";
+    deleteBtn.title = "Remove";
+    deleteBtn.addEventListener("click", () => deleteBounty(bounty.id));
+
+    li.append(text, deleteBtn);
+    bountiesCompletedList.appendChild(li);
+  }
+
+  renderBountyXpSummary();
+}
+
+function renderBountyXpSummary() {
+  const today = todayStr();
+  let todayXp = 0;
+  let allTimeXp = 0;
+  for (const bounty of cachedBounties) {
+    if (!bounty.completed_at) continue;
+    allTimeXp += bounty.awarded_xp || 0;
+    if (toLocalDateString(new Date(bounty.completed_at)) === today) todayXp += bounty.awarded_xp || 0;
+  }
+  bountyXpSummaryEl.textContent = `⚡ ${todayXp} XP today · ${allTimeXp} XP all-time`;
+}
+
+async function completeBounty(id) {
+  const bounty = cachedBounties.find((b) => b.id === id);
+  if (!bounty) return;
+  const awarded = bountyCurrentXp(bounty);
+  const { error } = await sb
+    .from("bounties")
+    .update({ completed_at: new Date().toISOString(), awarded_xp: awarded })
+    .eq("id", id);
+  if (error) console.error(error);
+  loadBounties();
+}
+
+async function deleteBounty(id) {
+  const { error } = await sb.from("bounties").delete().eq("id", id);
+  if (error) console.error(error);
+  loadBounties();
+}
+
+bountyForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const titleInput = document.getElementById("bounty-title");
+  const baseXpInput = document.getElementById("bounty-base-xp");
+  const multiplierInput = document.getElementById("bounty-multiplier");
+  const decayDaysInput = document.getElementById("bounty-decay-days");
+  const { data: userData } = await sb.auth.getUser();
+  const { error } = await sb.from("bounties").insert({
+    user_id: userData.user.id,
+    title: titleInput.value.trim(),
+    base_xp: parseInt(baseXpInput.value, 10) || 0,
+    multiplier_start: parseFloat(multiplierInput.value) || 1,
+    decay_days: parseFloat(decayDaysInput.value) || 1,
+  });
+  if (error) {
+    console.error(error);
+    return;
+  }
+  titleInput.value = "";
+  baseXpInput.value = "10";
+  multiplierInput.value = "3";
+  decayDaysInput.value = "7";
+  loadBounties();
+});
+
 // ---------- Calendar ----------
 
 const CALENDAR_COLORS = [
@@ -589,6 +765,7 @@ document.getElementById("calendar-next").addEventListener("click", () => {
 function refreshAll() {
   loadIntentions();
   loadHabits();
+  loadBounties();
 }
 
 if ("serviceWorker" in navigator) {
