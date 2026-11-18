@@ -237,10 +237,16 @@ function computeStreak(habitId, logs) {
 }
 
 const KIND_RANK = { once: 0, duration: 1, multi: 2 };
-const KIND_BADGE = { once: ["badge-once", "Daily"], multi: ["badge-multi", "Flexible"], duration: ["badge-duration", "Timed"] };
+const KIND_BADGE = { once: ["badge-once", "Daily"], multi: ["badge-multi", "Flexible"] };
 
-function habitBadge(kind) {
-  const [cls, label] = KIND_BADGE[kind] || KIND_BADGE.once;
+function habitBadge(habit) {
+  if (habit.kind === "duration") {
+    const badge = document.createElement("span");
+    badge.className = "badge badge-duration";
+    badge.textContent = habit.unit || "min";
+    return badge;
+  }
+  const [cls, label] = KIND_BADGE[habit.kind] || KIND_BADGE.once;
   const badge = document.createElement("span");
   badge.className = "badge " + cls;
   badge.textContent = label;
@@ -317,11 +323,12 @@ function renderHabitsToday(habits, logs) {
 
       control.append(minusBtn, countEl, plusBtn);
     } else if (habit.kind === "duration" && habit.tracks_books) {
+      const unit = habit.unit || "min";
       control.classList.add("duration-control", "book-control");
 
       const totalEl = document.createElement("span");
       totalEl.className = "duration-total";
-      totalEl.textContent = `${currentValue} min`;
+      totalEl.textContent = `${currentValue} ${unit}`;
 
       const resetBtn = document.createElement("button");
       resetBtn.className = "icon-btn";
@@ -350,34 +357,36 @@ function renderHabitsToday(habits, logs) {
         }
       }
 
-      const minutesInput = document.createElement("input");
-      minutesInput.type = "number";
-      minutesInput.min = "1";
-      minutesInput.className = "duration-input";
-      minutesInput.placeholder = "min";
+      const amountInput = document.createElement("input");
+      amountInput.type = "number";
+      amountInput.min = "0.1";
+      amountInput.step = "any";
+      amountInput.className = "duration-input";
+      amountInput.placeholder = unit;
 
       const addBtn = document.createElement("button");
       addBtn.className = "stepper-btn";
       addBtn.textContent = "+";
       addBtn.disabled = cachedBooks.length === 0;
       addBtn.addEventListener("click", () => {
-        const minutes = minutesInput.value ? parseInt(minutesInput.value, 10) : 1;
-        if (!minutes || minutes <= 0) return;
-        logReadingSession(habit.id, bookSelect.value, minutes, currentValue);
-        minutesInput.value = "";
+        const amount = amountInput.value ? parseFloat(amountInput.value) : 1;
+        if (!amount || amount <= 0) return;
+        logReadingSession(habit.id, bookSelect.value, amount, currentValue);
+        amountInput.value = "";
       });
 
       const entryRow = document.createElement("div");
       entryRow.className = "duration-entry";
-      entryRow.append(minutesInput, addBtn);
+      entryRow.append(amountInput, addBtn);
 
       control.append(totalRow, bookSelect, entryRow);
     } else {
+      const unit = habit.unit || "min";
       control.classList.add("duration-control");
 
       const totalEl = document.createElement("span");
       totalEl.className = "duration-total";
-      totalEl.textContent = `${currentValue} min`;
+      totalEl.textContent = `${currentValue} ${unit}`;
 
       const resetBtn = document.createElement("button");
       resetBtn.className = "icon-btn";
@@ -389,25 +398,26 @@ function renderHabitsToday(habits, logs) {
       totalRow.className = "duration-total-row";
       totalRow.append(totalEl, resetBtn);
 
-      const minutesInput = document.createElement("input");
-      minutesInput.type = "number";
-      minutesInput.min = "1";
-      minutesInput.className = "duration-input";
-      minutesInput.placeholder = "min";
+      const amountInput = document.createElement("input");
+      amountInput.type = "number";
+      amountInput.min = "0.1";
+      amountInput.step = "any";
+      amountInput.className = "duration-input";
+      amountInput.placeholder = unit;
 
       const addBtn = document.createElement("button");
       addBtn.className = "stepper-btn";
       addBtn.textContent = "+";
       addBtn.addEventListener("click", () => {
-        const minutes = parseInt(minutesInput.value, 10);
-        if (!minutes || minutes <= 0) return;
-        setHabitValue(habit.id, currentValue + minutes);
-        minutesInput.value = "";
+        const amount = amountInput.value ? parseFloat(amountInput.value) : 1;
+        if (!amount || amount <= 0) return;
+        setHabitValue(habit.id, currentValue + amount);
+        amountInput.value = "";
       });
 
       const entryRow = document.createElement("div");
       entryRow.className = "duration-entry";
-      entryRow.append(minutesInput, addBtn);
+      entryRow.append(amountInput, addBtn);
 
       control.append(totalRow, entryRow);
     }
@@ -419,7 +429,7 @@ function renderHabitsToday(habits, logs) {
     const name = document.createElement("span");
     name.className = "item-title";
     name.textContent = habit.name;
-    nameRow.append(name, habitBadge(habit.kind));
+    nameRow.append(name, habitBadge(habit));
     const streak = document.createElement("div");
     streak.className = "item-reason";
     const streakCount = computeStreak(habit.id, logs);
@@ -458,7 +468,7 @@ function renderHabitsManage(habits) {
     const name = document.createElement("span");
     name.className = "item-title";
     name.textContent = habit.name;
-    nameRow.append(name, habitBadge(habit.kind));
+    nameRow.append(name, habitBadge(habit));
     if (habit.tracks_books) {
       const bookBadge = document.createElement("span");
       bookBadge.className = "badge badge-book-reading";
@@ -469,7 +479,9 @@ function renderHabitsManage(habits) {
     const xpLine = document.createElement("div");
     xpLine.className = "item-reason";
     xpLine.textContent =
-      habit.kind === "duration" ? `${habit.xp_value} XP / min` : `${habit.xp_value} XP`;
+      habit.kind === "duration"
+        ? `${habit.xp_value} XP / ${habit.unit || "min"}`
+        : `${habit.xp_value} XP`;
     text.appendChild(xpLine);
 
     const toggleBtn = document.createElement("button");
@@ -493,20 +505,25 @@ const habitXpInput = document.getElementById("habit-xp");
 const habitXpHint = document.getElementById("habit-xp-hint");
 const habitTracksBooksRow = document.getElementById("habit-tracks-books-row");
 const habitTracksBooksCheckbox = document.getElementById("habit-tracks-books");
-
-const XP_HINTS = {
-  once: "XP earned each day you complete it.",
-  multi: "XP earned each time you tick it up.",
-  duration: "XP earned per minute logged.",
-};
+const habitUnitRow = document.getElementById("habit-unit-row");
+const habitUnitInput = document.getElementById("habit-unit");
 
 function updateXpHint() {
-  habitXpHint.textContent = XP_HINTS[habitKindSelect.value] || "";
   const isDuration = habitKindSelect.value === "duration";
+  if (habitKindSelect.value === "once") {
+    habitXpHint.textContent = "XP earned each day you complete it.";
+  } else if (habitKindSelect.value === "multi") {
+    habitXpHint.textContent = "XP earned each time you tick it up.";
+  } else {
+    const unit = habitUnitInput.value.trim() || "unit";
+    habitXpHint.textContent = `XP earned per ${unit} logged.`;
+  }
+  habitUnitRow.classList.toggle("hidden", !isDuration);
   habitTracksBooksRow.classList.toggle("hidden", !isDuration);
   if (!isDuration) habitTracksBooksCheckbox.checked = false;
 }
 habitKindSelect.addEventListener("change", updateXpHint);
+habitUnitInput.addEventListener("input", updateXpHint);
 updateXpHint();
 
 habitForm.addEventListener("submit", async (e) => {
@@ -518,6 +535,7 @@ habitForm.addEventListener("submit", async (e) => {
     name: nameInput.value.trim(),
     kind: habitKindSelect.value,
     xp_value: parseInt(habitXpInput.value, 10) || 0,
+    unit: habitUnitInput.value.trim() || "min",
     tracks_books: habitKindSelect.value === "duration" && habitTracksBooksCheckbox.checked,
   });
   if (error) {
@@ -526,6 +544,7 @@ habitForm.addEventListener("submit", async (e) => {
   }
   nameInput.value = "";
   habitXpInput.value = "1";
+  habitUnitInput.value = "min";
   habitTracksBooksCheckbox.checked = false;
   loadHabits();
 });

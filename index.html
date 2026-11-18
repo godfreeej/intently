@@ -164,8 +164,12 @@
           <select id="habit-kind">
             <option value="once">Once a day</option>
             <option value="multi">Multiple times a day</option>
-            <option value="duration">Timed (log minutes)</option>
+            <option value="duration">Measured (log an amount)</option>
           </select>
+          <label id="habit-unit-row" class="xp-field hidden">
+            Unit
+            <input type="text" id="habit-unit" placeholder="min, km, pages…" value="min" />
+          </label>
           <label class="xp-field">
             XP value
             <input type="number" id="habit-xp" min="0" step="1" value="1" required />
@@ -173,7 +177,7 @@
           <p id="habit-xp-hint" class="hint"></p>
           <label id="habit-tracks-books-row" class="xp-field hidden">
             <input type="checkbox" id="habit-tracks-books" />
-            Track specific books (logs minutes against a book from your Reading list)
+            Track specific books (logs against a book from your Reading list)
           </label>
           <button type="submit">Add habit</button>
         </form>
